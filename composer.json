@@ -1,0 +1,15 @@
+{
+    "type": "project",
+    "require": {
+        "php": "^8.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "Task1\\": "Task1/",
+            "Legacy\\": "Task1/Legacy/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
