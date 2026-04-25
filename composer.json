@@ -6,7 +6,8 @@
     "autoload": {
         "psr-4": {
             "Task1\\": "Task1/",
-            "Legacy\\": "Task1/Legacy/"
+            "Legacy\\": "Task1/Legacy/",
+            "Task2\\": "Task2"
         }
     },
     "config": {
