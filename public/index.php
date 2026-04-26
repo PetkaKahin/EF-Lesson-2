@@ -14,5 +14,6 @@ require __DIR__ . '/../vendor/autoload.php';
 <h1>EF Module 2</h1>
 <?php include __DIR__ . '/task1.php'; ?>
 <?php include __DIR__ . '/task2.php'; ?>
+<?php include __DIR__ . '/task3.php'; ?>
 </body>
 </html>
