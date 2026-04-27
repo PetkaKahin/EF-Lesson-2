@@ -7,8 +7,9 @@
         "psr-4": {
             "Task1\\": "Task1/",
             "Legacy\\": "Task1/Legacy/",
-            "Task2\\": "Task2",
-            "Task3\\": "Task3"
+            "Task2\\": "Task2/",
+            "Task3\\": "Task3/",
+            "Task4\\": "Task4/"
         }
     },
     "config": {
