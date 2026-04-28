@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(php -v)",
+      "Bash(composer dump-autoload *)",
+      "Bash(docker compose exec *)"
+    ]
+  }
+}

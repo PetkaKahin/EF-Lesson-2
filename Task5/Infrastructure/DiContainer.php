@@ -1,6 +1,8 @@
 <?php
 
-namespace Task3;
+declare(strict_types=1);
+
+namespace Task5\Infrastructure;
 
 use Closure;
 use InvalidArgumentException;
