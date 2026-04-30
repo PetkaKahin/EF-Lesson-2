@@ -1,11 +1,13 @@
 <?php
 
-namespace Task5\Infrastructure\Repositories;
+declare(strict_types=1);
 
-use Task5\Domain\Order;
-use Task5\Domain\Contracts\OrderRepositoryInterface;
+namespace Task6\Infrastructure\Repositories;
 
-class OrderRepository implements OrderRepositoryInterface
+use Task6\Domain\Contracts\OrderRepositoryInterface;
+use Task6\Domain\Order;
+
+final class OrderRepository implements OrderRepositoryInterface
 {
     /**
      * @var array<Order>
@@ -13,7 +15,7 @@ class OrderRepository implements OrderRepositoryInterface
     private(set) public array $orders = [];
 
     public function __construct(
-        private readonly string $storage
+        private readonly string $storage,
     )
     {
         if (file_exists($storage)) {
@@ -25,16 +27,9 @@ class OrderRepository implements OrderRepositoryInterface
         }
     }
 
-    public function save(Order $order): void
-    {
-        $this->orders[$order->id] = $order;
-
-        file_put_contents(
-            $this->storage,
-            json_encode(['orders' => $this->orders], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
-        );
-    }
-
+    /**
+     * @return array<Order>
+     */
     public function orders(): array
     {
         return $this->orders;
@@ -43,5 +38,15 @@ class OrderRepository implements OrderRepositoryInterface
     public function order(string $id): ?Order
     {
         return $this->orders[$id] ?? null;
+    }
+
+    public function save(Order $order): void
+    {
+        $this->orders[$order->id] = $order;
+
+        file_put_contents(
+            $this->storage,
+            json_encode(['orders' => $this->orders], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
+        );
     }
 }

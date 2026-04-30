@@ -17,5 +17,6 @@ require __DIR__ . '/../vendor/autoload.php';
 <?php include __DIR__ . '/task3.php'; ?>
 <?php include __DIR__ . '/task4.php'; ?>
 <?php include __DIR__ . '/task5.php'; ?>
+<?php include __DIR__ . '/task6.php'; ?>
 </body>
 </html>

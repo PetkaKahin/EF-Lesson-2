@@ -1,11 +1,13 @@
 <?php
 
-namespace Task5\Infrastructure\Repositories;
+declare(strict_types=1);
 
-use Task5\Domain\Contracts\UserRepositoryInterface;
-use Task5\Domain\User;
+namespace Task6\Infrastructure\Repositories;
 
-class UserRepository implements UserRepositoryInterface
+use Task6\Domain\Contracts\UserRepositoryInterface;
+use Task6\Domain\User;
+
+final class UserRepository implements UserRepositoryInterface
 {
     /**
      * @var array<User>
@@ -13,7 +15,7 @@ class UserRepository implements UserRepositoryInterface
     private(set) public array $users = [];
 
     public function __construct(
-        private readonly string $storage
+        private readonly string $storage,
     )
     {
         if (file_exists($storage)) {
@@ -25,16 +27,9 @@ class UserRepository implements UserRepositoryInterface
         }
     }
 
-    public function save(User $user): void
-    {
-        $this->users[$user->email] = $user;
-
-        file_put_contents(
-            $this->storage,
-            json_encode(['users' => $this->users], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
-        );
-    }
-
+    /**
+     * @return array<User>
+     */
     public function users(): array
     {
         return $this->users;
@@ -43,5 +38,15 @@ class UserRepository implements UserRepositoryInterface
     public function user(string $email): ?User
     {
         return $this->users[$email] ?? null;
+    }
+
+    public function save(User $user): void
+    {
+        $this->users[$user->email] = $user;
+
+        file_put_contents(
+            $this->storage,
+            json_encode(['users' => $this->users], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
+        );
     }
 }
