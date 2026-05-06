@@ -2,8 +2,6 @@
 
 namespace Task1\DTO;
 
-use Task1\Enums\PromoCode;
-
 class PricingData
 {
     public function __construct(
@@ -12,7 +10,7 @@ class PricingData
         public float $tax = 0,
         public float $total = 0,
         public float $deliveryCost = 0,
-        public ?PromoCode $promoCode = null,
+        public ?string $promoCode = null,
     ) {}
 
     public function toArray(): array
@@ -23,7 +21,7 @@ class PricingData
             'tax' => $this->tax,
             'total' => $this->total,
             'deliveryCost' => $this->deliveryCost,
-            'promoCode' => $this->promoCode?->value,
+            'promoCode' => $this->promoCode,
         ];
     }
 }

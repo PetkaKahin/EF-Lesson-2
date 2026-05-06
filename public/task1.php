@@ -8,12 +8,15 @@ use Task1\DTO\OrderData;
 use Task1\DTO\PaymentData;
 use Task1\Enums\DeliveryType;
 use Task1\Enums\PaymentMethod;
-use Task1\Enums\PromoCode;
 use Task1\Notifications\AdminOrderNotify;
 use Task1\Notifications\CustomerOrderNotify;
 use Task1\OrderRepository;
 use Task1\OrderService;
 use Task1\PricingCalculator;
+use Task1\PromoCodeRules\FreeShipPromoCodeRule;
+use Task1\PromoCodeRules\VipPromoCodeRule;
+use Task1\PromoCodeRules\Welcome10PromoCodeRule;
+use Task1\PromoCodeRulesRegistry;
 
 $input = [
     'customer' => ['email' => 'alice@example.com', 'name' => 'Alice'],
@@ -44,8 +47,13 @@ $orderData = new OrderData(
     ],
     payment: new PaymentData(PaymentMethod::Card, '4111111111111111'),
     delivery: new DeliveryData(DeliveryType::Courier, 'Baker st 221b'),
-    promoCode: PromoCode::Welcome10,
+    promoCode: $input['promoCode'],
 );
+
+$promoCodeRulesRegistry = new PromoCodeRulesRegistry();
+$promoCodeRulesRegistry->set('WELCOME10', new Welcome10PromoCodeRule());
+$promoCodeRulesRegistry->set('VIP', new VipPromoCodeRule(2000, 100, 300));
+$promoCodeRulesRegistry->set('FREESHIP', new FreeShipPromoCodeRule());
 
 $service = new OrderService(
     repository: new OrderRepository($storageFile),
@@ -53,7 +61,7 @@ $service = new OrderService(
         new AdminOrderNotify('admin@example.com', true),
         new CustomerOrderNotify(true),
     ],
-    pricingCalculator: new PricingCalculator(),
+    pricingCalculator: new PricingCalculator($promoCodeRulesRegistry),
 );
 
 $newOrder = $service->create($orderData);
@@ -65,7 +73,7 @@ $rows = [
     ['tax',           $legacyOrder['pricing']['tax'],           $newOrder->pricing->tax],
     ['deliveryCost',  $legacyOrder['delivery']['cost'],         $newOrder->pricing->deliveryCost],
     ['total',         $legacyOrder['pricing']['total'],         $newOrder->pricing->total],
-    ['promoCode',     $legacyOrder['pricing']['promoCode'],     $newOrder->pricing->promoCode?->value],
+    ['promoCode',     $legacyOrder['pricing']['promoCode'],     $newOrder->pricing->promoCode],
     ['paymentStatus', $legacyOrder['payment']['status'],        $newOrder->paymentStatus->value],
 ];
 ?>

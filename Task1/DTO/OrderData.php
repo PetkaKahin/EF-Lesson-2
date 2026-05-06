@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Task1\DTO;
 
 use InvalidArgumentException;
-use Task1\Enums\PromoCode;
 
 final readonly class OrderData
 {
@@ -17,7 +16,7 @@ final readonly class OrderData
         public array $items,
         public PaymentData $payment,
         public DeliveryData $delivery,
-        public ?PromoCode $promoCode = null
+        public ?string $promoCode = null
     )
     {
         $this->validate();
@@ -33,7 +32,7 @@ final readonly class OrderData
             ),
             'payment' => $this->payment->toArray(),
             'delivery' => $this->delivery->toArray(),
-            'promoCode' => $this->promoCode->value ?? null,
+            'promoCode' => $this->promoCode,
         ];
     }
 
