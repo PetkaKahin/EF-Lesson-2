@@ -1,24 +1,16 @@
 <?php
 
 use Task2\DTO\CreateOrderRequest;
+use Task2\DTO\CreateOrderItemRequest;
 use Task2\Entity\Order;
 use Task2\Factory\OrderFactory;
 
 $request = new CreateOrderRequest(
     email: 'alice@example.com',
     items: [
-        (object)[
-            'name' => 'Widget',
-            'quantity' => 2,
-            'price' => ['amount' => 500, 'currency' => 'RUB'],
-        ],
-        (object)[
-            'name' => 'Gadget',
-            'quantity' => 1,
-            'price' => ['amount' => 150, 'currency' => 'RUB'],
-        ],
+        new CreateOrderItemRequest('Widget', 2, 500, 'RUB'),
+        new CreateOrderItemRequest('Gadget', 1, 150, 'RUB'),
     ],
-    money: [],
 );
 
 $order = OrderFactory::createFromRequest($request);
@@ -27,10 +19,10 @@ $inputRows = [
     ['email',             $request->email],
     ['items[0].name',     $request->items[0]->name],
     ['items[0].quantity', $request->items[0]->quantity],
-    ['items[0].price',    $request->items[0]->price['amount'] . ' ' . $request->items[0]->price['currency']],
+    ['items[0].price',    $request->items[0]->priceAmount . ' ' . $request->items[0]->priceCurrency],
     ['items[1].name',     $request->items[1]->name],
     ['items[1].quantity', $request->items[1]->quantity],
-    ['items[1].price',    $request->items[1]->price['amount'] . ' ' . $request->items[1]->price['currency']],
+    ['items[1].price',    $request->items[1]->priceAmount . ' ' . $request->items[1]->priceCurrency],
 ];
 
 $resultRows = [

@@ -24,12 +24,12 @@ class OrderFactory
 
         $id = new OrderId(uniqid('order_', true));
         $items = [];
-        $totalPrice = new Money(0, Currency::from($request->items[0]->price['currency']));
+        $totalPrice = new Money(0, Currency::from($request->items[0]->priceCurrency));
 
         foreach ($request->items as $item) {
             $money = new Money(
-                amount: $item->price['amount'],
-                currency: Currency::from($item->price['currency'])
+                amount: $item->priceAmount,
+                currency: Currency::from($item->priceCurrency)
             );
 
             $totalPrice = $totalPrice->add($money->multiply($item->quantity));
