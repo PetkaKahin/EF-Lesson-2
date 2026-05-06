@@ -1,11 +1,14 @@
 <?php
 
-namespace Task6\Domain\Contracts;
+declare(strict_types=1);
 
-use Task6\Domain\DTO\PaymentData;
+namespace Task6\LegacyWithFeature\Contracts;
+
+use Task6\LegacyWithFeature\DTO\PaymentData;
 
 interface PromoCodeRuleInterface
 {
     public function getPromoCode(): string;
+
     public function apply(PaymentData $payment): PaymentData;
 }

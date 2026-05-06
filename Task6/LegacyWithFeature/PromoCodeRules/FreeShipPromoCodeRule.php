@@ -2,13 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Task6\Infrastructure\PromoCodeRules;
+namespace Task6\LegacyWithFeature\PromoCodeRules;
 
-use Task6\Domain\Contracts\PromoCodeRuleInterface;
-use Task6\Domain\DTO\PaymentData;
+use Task6\LegacyWithFeature\Contracts\PromoCodeRuleInterface;
+use Task6\LegacyWithFeature\DTO\PaymentData;
 
 final class FreeShipPromoCodeRule implements PromoCodeRuleInterface
 {
+    public function getPromoCode(): string
+    {
+        return 'SHIPFREE';
+    }
+
     public function apply(PaymentData $payment): PaymentData
     {
         return new PaymentData(
@@ -18,10 +23,5 @@ final class FreeShipPromoCodeRule implements PromoCodeRuleInterface
             total: $payment->total,
             delivery: 0,
         );
-    }
-
-    public function getPromoCode(): string
-    {
-        return "FREESHIP";
     }
 }

@@ -1,6 +1,8 @@
 <?php
 
-namespace Task6\Domain\DTO;
+declare(strict_types=1);
+
+namespace Task6\LegacyWithFeature\DTO;
 
 class PaymentData
 {
@@ -10,7 +12,6 @@ class PaymentData
         public float $tax = 0.0,
         public float $total = 0.0,
         public float $delivery = 0.0,
-    )
-    {
+    ) {
     }
 }

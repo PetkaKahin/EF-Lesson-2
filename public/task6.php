@@ -1,181 +1,197 @@
 <?php
 
-use Task6\Application\CreateOrder;
-use Task6\Application\DTO\CreateOrderRequest;
-use Task6\Domain\Contracts\NotifyInterface;
-use Task6\Domain\Contracts\OrderRepositoryInterface;
-use Task6\Domain\Contracts\UserRepositoryInterface;
-use Task6\Domain\PromoCodeRulesRegistry;
-use Task6\Domain\User;
-use Task6\Domain\VO\Delivery;
-use Task6\Domain\VO\DeliveryType;
-use Task6\Domain\VO\OrderItem;
-use Task6\Infrastructure\DiContainer;
-use Task6\Infrastructure\Notification\EchoLogger;
-use Task6\Infrastructure\PromoCodeRules\FreeShipPromoCodeRule;
-use Task6\Infrastructure\PromoCodeRules\VipPromoCodeRule;
-use Task6\Infrastructure\PromoCodeRules\Welcome10PromoCodeRule;
-use Task6\Infrastructure\Repositories\OrderRepository;
-use Task6\Infrastructure\Repositories\UserRepository;
+use Task6\Legacy\OrderService as OriginalOrderService;
+use Task6\LegacyWithFeature\OrderService as FeatureOrderService;
+use Task6\LegacyWithFeature\PromoCodeRules\FreeShipPromoCodeRule;
+use Task6\LegacyWithFeature\PromoCodeRules\VipPromoCodeRule;
+use Task6\LegacyWithFeature\PromoCodeRules\Welcome10PromoCodeRule;
+use Task6\LegacyWithFeature\PromoCodeRulesRegistry;
+use Task6\LegacyWithFeature\ServiceLocator;
 
 $storageDir = __DIR__ . '/../var/task6';
 if (!is_dir($storageDir)) {
     mkdir($storageDir, 0775, true);
 }
-$usersStorage = $storageDir . '/users.json';
-$ordersStorage = $storageDir . '/orders.json';
-file_put_contents($usersStorage, json_encode(['users' => []]));
-file_put_contents($ordersStorage, json_encode(['orders' => []]));
 
-$container = new DiContainer();
+$originalOrdersStorage = $storageDir . '/legacy-orders.json';
+$featureOrdersStorage = $storageDir . '/legacy-with-feature-orders.json';
+file_put_contents($originalOrdersStorage, json_encode([]));
+file_put_contents($featureOrdersStorage, json_encode([]));
 
-$container->singleton(UserRepositoryInterface::class, fn() => new UserRepository($usersStorage));
-$container->singleton(OrderRepositoryInterface::class, fn() => new OrderRepository($ordersStorage));
-$container->singleton(NotifyInterface::class, fn() => new EchoLogger());
-$container->singleton(PromoCodeRulesRegistry::class, function () {
-    $registry = new PromoCodeRulesRegistry();
-    $registry->set('WELCOME10', new Welcome10PromoCodeRule());
-    $registry->set('SHIPFREE', new FreeShipPromoCodeRule());
-    $registry->set('FREESHIP', new FreeShipPromoCodeRule());
-    $registry->set('VIP', new VipPromoCodeRule(
-        threshold: 2000,
-        discountBeforeThreshold: 100,
-        discountAfterThreshold: 300,
-    ));
-    return $registry;
-});
-$container->singleton(CreateOrder::class, fn() => new CreateOrder(
-    userRepository: $container->make(UserRepositoryInterface::class),
-    orderRepository: $container->make(OrderRepositoryInterface::class),
-    promoCodeRulesRegistry: $container->make(PromoCodeRulesRegistry::class),
-    notifications: [$container->make(NotifyInterface::class)],
+ServiceLocator::reset();
+
+$promoCodeRulesRegistry = new PromoCodeRulesRegistry();
+$promoCodeRulesRegistry->set('WELCOME10', new Welcome10PromoCodeRule());
+$promoCodeRulesRegistry->set('SHIPFREE', new FreeShipPromoCodeRule());
+$promoCodeRulesRegistry->set('FREESHIP', new FreeShipPromoCodeRule());
+$promoCodeRulesRegistry->set('VIP', new VipPromoCodeRule(
+    threshold: 2000,
+    discountBeforeThreshold: 100,
+    discountAfterThreshold: 300,
 ));
 
-$bindings = [
-    [UserRepositoryInterface::class, UserRepository::class],
-    [OrderRepositoryInterface::class, OrderRepository::class],
-    [NotifyInterface::class, EchoLogger::class],
-    [PromoCodeRulesRegistry::class, PromoCodeRulesRegistry::class . ' (WELCOME10, SHIPFREE, FREESHIP, VIP)'],
-    [CreateOrder::class, CreateOrder::class],
-];
-
-$userRepo = $container->make(UserRepositoryInterface::class);
-$orderRepo = $container->make(OrderRepositoryInterface::class);
-$useCase = $container->make(CreateOrder::class);
-
-$email = 'alice@example.com';
-$userRepo->save(new User(
-    email: $email,
-    ordersCount: 0,
-    createdAt: new DateTimeImmutable('now', new DateTimeZone('UTC')),
+ServiceLocator::set(PromoCodeRulesRegistry::class, $promoCodeRulesRegistry);
+ServiceLocator::setFactory(FeatureOrderService::class, static fn() => new FeatureOrderService(
+    promoCodeRulesRegistry: ServiceLocator::get(PromoCodeRulesRegistry::class),
+    storageFile: $featureOrdersStorage,
 ));
 
-$items = [
-    new OrderItem(sku: 'A1', title: 'Keyboard', price: 500, quantity: 2),
-    new OrderItem(sku: 'B2', title: 'Mouse', price: 150, quantity: 1),
-];
-$delivery = new Delivery(
-    address: 'Moscow, Tverskaya 1',
-    type: DeliveryType::Courier,
-    defaultPrice: 199,
-);
-$promoCodes = ['WELCOME10', 'SHIPFREE'];
+$originalOrderService = new OriginalOrderService();
+$originalStorageProperty = new ReflectionProperty($originalOrderService, 'storageFile');
+$originalStorageProperty->setAccessible(true);
+$originalStorageProperty->setValue($originalOrderService, $originalOrdersStorage);
 
-$inputRows = [
-    ['email', $email],
-    ['items', 'Keyboard 500 x 2 + Mouse 150 x 1'],
-    ['delivery', $delivery->type->value . ', ' . number_format($delivery->defaultPrice, 2, '.', '')],
-    ['promoCodes', implode(', ', $promoCodes)],
-    ['tax', '5%'],
-];
+$featureOrderService = ServiceLocator::get(FeatureOrderService::class);
 
-ob_start();
-$order = $useCase->create(new CreateOrderRequest(
-    customerEmail: $email,
-    delivery: $delivery,
-    items: $items,
-    promoCodes: $promoCodes,
-    taxPercent: 5,
-));
-$logsOutput = trim((string)ob_get_clean());
-
-$storedUser = $userRepo->user($email);
-$payment = $order->payment;
-
-$resultRows = [
-    ['id', $order->id],
-    ['createdAt', $order->createdAt->format('Y-m-d H:i:s')],
-    ['email', $order->customerEmail],
-    ['status', $order->status->value],
-    ['items', (string)count($order->items)],
-    ['delivery', number_format($payment->delivery, 2, '.', '')],
-    ['subtotal', number_format($payment->subtotal, 2, '.', '')],
-    ['discount', number_format($payment->discount, 2, '.', '')],
-    ['tax', number_format($payment->tax, 2, '.', '')],
-    ['total', number_format($payment->total, 2, '.', '')],
-    ['applied promo codes', implode(', ', $order->appliedPromoCodes)],
-    ['stored in repository', $orderRepo->order($order->id) !== null ? 'yes' : 'no'],
-    ['user orders count', $storedUser !== null ? (string)$storedUser->ordersCount : 'not found'],
-];
-
-$messages = [];
-if ($logsOutput !== '') {
-    preg_match_all('/\[[^\]]+\][^\[]*/', $logsOutput, $matches);
-    $messages = $matches[0] ?: [$logsOutput];
-}
-
-$invariantHolds = abs($payment->total - ($payment->subtotal - $payment->discount + $payment->tax + $payment->delivery)) < 0.0001;
-
-$invariantRows = [
-    [
-        'total = subtotal - discount + tax + delivery',
-        $invariantHolds ? 'OK' : 'FAIL',
-        sprintf(
-            '%.2f = %.2f - %.2f + %.2f + %.2f',
-            $payment->total,
-            $payment->subtotal,
-            $payment->discount,
-            $payment->tax,
-            $payment->delivery
-        ),
+$baseInput = [
+    'customer' => [
+        'email' => 'alice@example.com',
+        'name' => 'Alice',
+    ],
+    'items' => [
+        ['sku' => 'A1', 'title' => 'Keyboard', 'price' => 300, 'qty' => 2],
+        ['sku' => 'B2', 'title' => 'Mouse', 'price' => 150, 'qty' => 1],
+    ],
+    'payment' => [
+        'method' => 'card',
+        'cardNumber' => '4111111111111111',
+    ],
+    'delivery' => [
+        'type' => 'courier',
+        'address' => 'Moscow, Tverskaya 1',
     ],
 ];
 
-try {
-    $useCase->create(new CreateOrderRequest(
-        customerEmail: $email,
-        delivery: $delivery,
-        items: $items,
-        promoCodes: ['WELCOME10', 'FREESHIP', 'VIP'],
-        taxPercent: 5,
-    ));
-    $invariantRows[] = ['create() with 3 promo codes', 'FAIL', 'exception was not thrown'];
-} catch (Throwable $e) {
-    $invariantRows[] = ['create() with 3 promo codes', 'OK', $e->getMessage()];
+$originalInput = $baseInput + ['promoCode' => 'WELCOME10'];
+$featureInput = $baseInput + ['promoCodes' => ['WELCOME10', 'SHIPFREE']];
+
+$originalResult = $originalOrderService->createOrder($originalInput);
+$featureResult = $featureOrderService->createOrder($featureInput);
+
+$originalOrder = $originalResult['order'] ?? null;
+$featureOrder = $featureResult['order'] ?? null;
+$originalPricing = $originalOrder['pricing'] ?? [];
+$featurePricing = $featureOrder['pricing'] ?? [];
+$originalDelivery = $originalOrder['delivery'] ?? [];
+$featureDelivery = $featureOrder['delivery'] ?? [];
+
+$inputRows = [
+    ['customer.email', $baseInput['customer']['email']],
+    ['items', 'Keyboard 300 x 2 + Mouse 150 x 1'],
+    ['delivery', $baseInput['delivery']['type'] . ', address filled'],
+    ['payment', $baseInput['payment']['method']],
+    ['old input', 'promoCode = WELCOME10'],
+    ['new input', 'promoCodes = WELCOME10, SHIPFREE'],
+];
+
+$registrationRows = [
+    ['Old service', OriginalOrderService::class],
+    ['New service', FeatureOrderService::class],
+    ['WELCOME10', Welcome10PromoCodeRule::class . ' (-10%)'],
+    ['SHIPFREE', FreeShipPromoCodeRule::class . ' (free delivery)'],
+    ['FREESHIP', FreeShipPromoCodeRule::class . ' (legacy alias)'],
+    ['VIP', VipPromoCodeRule::class . ' (legacy rule)'],
+    [PromoCodeRulesRegistry::class, 'registered in public/task6.php'],
+];
+
+$comparisonRows = [];
+if ($originalOrder !== null && $featureOrder !== null) {
+    $comparisonRows = [
+        ['Implementation', 'inline if/elseif in OrderService', 'registry + PromoCodeRule classes'],
+        ['Promo input', (string)$originalInput['promoCode'], implode(', ', $featureInput['promoCodes'])],
+        ['Promo output', (string)$originalPricing['promoCode'], implode(', ', $featurePricing['promoCodes'])],
+        ['Subtotal', number_format((float)$originalPricing['subtotal'], 2, '.', ''), number_format((float)$featurePricing['subtotal'], 2, '.', '')],
+        ['Discount', number_format((float)$originalPricing['discount'], 2, '.', ''), number_format((float)$featurePricing['discount'], 2, '.', '')],
+        ['Delivery', number_format((float)$originalDelivery['cost'], 2, '.', ''), number_format((float)$featureDelivery['cost'], 2, '.', '')],
+        ['Tax', number_format((float)$originalPricing['tax'], 2, '.', ''), number_format((float)$featurePricing['tax'], 2, '.', '')],
+        ['Total', number_format((float)$originalPricing['total'], 2, '.', ''), number_format((float)$featurePricing['total'], 2, '.', '')],
+    ];
+} else {
+    $comparisonRows = [
+        ['Old result', (string)($originalResult['error'] ?? 'unknown error'), '-'],
+        ['New result', '-', (string)($featureResult['error'] ?? 'unknown error')],
+    ];
 }
+
+$checkRows = [];
+if ($originalOrder !== null) {
+    $expectedOriginalTotal = $originalPricing['subtotal'] - $originalPricing['discount'] + $originalPricing['tax'] + $originalDelivery['cost'];
+    $checkRows[] = [
+        'old total invariant',
+        abs($originalPricing['total'] - $expectedOriginalTotal) < 0.0001 ? 'OK' : 'FAIL',
+        sprintf(
+            '%.2f = %.2f - %.2f + %.2f + %.2f',
+            $originalPricing['total'],
+            $originalPricing['subtotal'],
+            $originalPricing['discount'],
+            $originalPricing['tax'],
+            $originalDelivery['cost'],
+        ),
+    ];
+}
+
+if ($featureOrder !== null) {
+    $expectedFeatureTotal = $featurePricing['subtotal'] - $featurePricing['discount'] + $featurePricing['tax'] + $featureDelivery['cost'];
+    $checkRows[] = [
+        'new total invariant',
+        abs($featurePricing['total'] - $expectedFeatureTotal) < 0.0001 ? 'OK' : 'FAIL',
+        sprintf(
+            '%.2f = %.2f - %.2f + %.2f + %.2f',
+            $featurePricing['total'],
+            $featurePricing['subtotal'],
+            $featurePricing['discount'],
+            $featurePricing['tax'],
+            $featureDelivery['cost'],
+        ),
+    ];
+}
+
+$legacyInputInFeatureResult = $featureOrderService->createOrder($originalInput);
+$checkRows[] = [
+    'new service accepts legacy promoCode input',
+    ($legacyInputInFeatureResult['ok'] ?? false) ? 'OK' : 'FAIL',
+    implode(', ', $legacyInputInFeatureResult['order']['pricing']['promoCodes'] ?? []) ?: (string)($legacyInputInFeatureResult['error'] ?? ''),
+];
+
+$aliasInput = $baseInput + ['promoCodes' => ['FREESHIP']];
+$aliasResult = $featureOrderService->createOrder($aliasInput);
+$aliasDeliveryCost = (float)($aliasResult['order']['delivery']['cost'] ?? -1);
+$checkRows[] = [
+    'legacy alias FREESHIP',
+    ($aliasResult['ok'] ?? false) && abs($aliasDeliveryCost) < 0.0001 ? 'OK' : 'FAIL',
+    'delivery=' . number_format($aliasDeliveryCost, 2, '.', ''),
+];
+
+$tooManyPromoInput = $baseInput + ['promoCodes' => ['WELCOME10', 'SHIPFREE', 'VIP']];
+$tooManyPromoResult = $featureOrderService->createOrder($tooManyPromoInput);
+$checkRows[] = [
+    '3 promo codes',
+    ($tooManyPromoResult['ok'] ?? true) === false ? 'OK' : 'FAIL',
+    (string)($tooManyPromoResult['error'] ?? 'error was not returned'),
+];
 ?>
 <section>
     <h2>Задание 6. Финал блока — “фича в легаси”</h2>
 
-    <h3>Регистрации в DI-контейнере</h3>
+    <h3>Регистрация</h3>
     <table>
         <thead>
-        <tr><th>Абстракция</th><th>Реализация</th></tr>
+        <tr><th>Item</th><th>Value</th></tr>
         </thead>
         <tbody>
-        <?php foreach ($bindings as [$abstract, $concrete]): ?>
+        <?php foreach ($registrationRows as [$item, $value]): ?>
             <tr>
-                <td class="field"><?= htmlspecialchars($abstract) ?></td>
-                <td><?= htmlspecialchars($concrete) ?></td>
+                <td class="field"><?= htmlspecialchars($item) ?></td>
+                <td><?= htmlspecialchars($value) ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
     </table>
 
-    <h3>Входные данные</h3>
+    <h3>Input</h3>
     <table>
         <thead>
-        <tr><th>Поле</th><th>Значение</th></tr>
+        <tr><th>Field</th><th>Value</th></tr>
         </thead>
         <tbody>
         <?php foreach ($inputRows as [$field, $value]): ?>
@@ -187,52 +203,31 @@ try {
         </tbody>
     </table>
 
-    <h3>Результат use case</h3>
+    <h3>Сравнение со старым кодом</h3>
     <table>
         <thead>
-        <tr><th>Поле</th><th>Значение</th></tr>
+        <tr><th>Field</th><th>Old legacy</th><th>Legacy with feature</th></tr>
         </thead>
         <tbody>
-        <?php foreach ($resultRows as [$field, $value]): ?>
+        <?php foreach ($comparisonRows as [$field, $oldValue, $newValue]): ?>
             <tr>
                 <td class="field"><?= htmlspecialchars($field) ?></td>
-                <td><?= htmlspecialchars((string)$value) ?></td>
+                <td><?= htmlspecialchars((string)$oldValue) ?></td>
+                <td><?= htmlspecialchars((string)$newValue) ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
     </table>
 
-    <h3>Уведомления (NotifyInterface)</h3>
+    <h3>Проверки</h3>
     <table>
         <thead>
-        <tr><th>#</th><th>Сообщение</th></tr>
+        <tr><th>Scenario</th><th>Result</th><th>Details</th></tr>
         </thead>
         <tbody>
-        <?php if ($messages === []): ?>
+        <?php foreach ($checkRows as [$scenario, $outcome, $detail]): ?>
             <tr>
-                <td class="field">-</td>
-                <td>Нет сообщений</td>
-            </tr>
-        <?php else: ?>
-            <?php foreach ($messages as $idx => $message): ?>
-                <tr>
-                    <td class="field"><?= $idx + 1 ?></td>
-                    <td><?= htmlspecialchars(trim((string)$message)) ?></td>
-                </tr>
-            <?php endforeach; ?>
-        <?php endif; ?>
-        </tbody>
-    </table>
-
-    <h3>Проверка инвариантов</h3>
-    <table>
-        <thead>
-        <tr><th>Действие</th><th>Результат</th><th>Подробности</th></tr>
-        </thead>
-        <tbody>
-        <?php foreach ($invariantRows as [$action, $outcome, $detail]): ?>
-            <tr>
-                <td class="field"><?= htmlspecialchars($action) ?></td>
+                <td class="field"><?= htmlspecialchars($scenario) ?></td>
                 <td class="<?= $outcome === 'OK' ? 'ok' : 'err' ?>"><?= htmlspecialchars($outcome) ?></td>
                 <td><?= htmlspecialchars((string)$detail) ?></td>
             </tr>

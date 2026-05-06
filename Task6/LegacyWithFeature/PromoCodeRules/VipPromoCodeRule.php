@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Task6\Infrastructure\PromoCodeRules;
+namespace Task6\LegacyWithFeature\PromoCodeRules;
 
 use InvalidArgumentException;
-use Task6\Domain\Contracts\PromoCodeRuleInterface;
-use Task6\Domain\DTO\PaymentData;
+use Task6\LegacyWithFeature\Contracts\PromoCodeRuleInterface;
+use Task6\LegacyWithFeature\DTO\PaymentData;
 
 final readonly class VipPromoCodeRule implements PromoCodeRuleInterface
 {
@@ -27,6 +27,11 @@ final readonly class VipPromoCodeRule implements PromoCodeRuleInterface
         }
     }
 
+    public function getPromoCode(): string
+    {
+        return 'VIP';
+    }
+
     public function apply(PaymentData $payment): PaymentData
     {
         $discount = $this->discountBeforeThreshold;
@@ -37,15 +42,10 @@ final readonly class VipPromoCodeRule implements PromoCodeRuleInterface
 
         return new PaymentData(
             subtotal: $payment->subtotal,
-            discount: $discount,
+            discount: $payment->discount + $discount,
             tax: $payment->tax,
             total: $payment->total,
             delivery: $payment->delivery,
         );
-    }
-
-    public function getPromoCode(): string
-    {
-        return "VIP";
     }
 }
