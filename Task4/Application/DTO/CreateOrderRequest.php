@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Task4\Domain\Requests;
+namespace Task4\Application\DTO;
 
 class CreateOrderRequest
 {
     public function __construct(
-        public readonly float                    $amount,
+        public readonly float $amount,
     )
     {
     }

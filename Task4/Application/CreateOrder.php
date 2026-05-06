@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Task4\Application;
 
 use InvalidArgumentException;
+use Task4\Application\DTO\CreateOrderRequest;
 use Task4\Domain\Contracts\ClockInterface;
 use Task4\Domain\Contracts\LoggerInterface;
 use Task4\Domain\Contracts\OrderRepositoryInterface;
 use Task4\Domain\Order;
-use Task4\Domain\Requests\CreateOrderRequest;
 
 class CreateOrder
 {

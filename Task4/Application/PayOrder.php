@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Task4\Application;
 
 use RuntimeException;
+use Task4\Application\DTO\PayOrderRequest;
 use Task4\Domain\Contracts\ClockInterface;
 use Task4\Domain\Contracts\LoggerInterface;
 use Task4\Domain\Contracts\OrderRepositoryInterface;
-use Task4\Domain\Requests\PayOrderRequest;
 
 class PayOrder
 {

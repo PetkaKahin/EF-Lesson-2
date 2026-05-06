@@ -1,12 +1,12 @@
 <?php
 
 use Task4\Application\CreateOrder;
+use Task4\Application\DTO\CreateOrderRequest;
+use Task4\Application\DTO\PayOrderRequest;
 use Task4\Application\PayOrder;
 use Task4\Domain\Contracts\ClockInterface;
 use Task4\Domain\Contracts\LoggerInterface;
 use Task4\Domain\Contracts\OrderRepositoryInterface;
-use Task4\Domain\Requests\CreateOrderRequest;
-use Task4\Domain\Requests\PayOrderRequest;
 use Task4\Infrastructure\EchoLogger;
 use Task4\Infrastructure\InMemoryOrderRepository;
 use Task4\Infrastructure\SystemClock;
